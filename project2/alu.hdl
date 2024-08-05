@@ -1,0 +1,49 @@
+
+// Implementation: Manipulates the x and y inputs
+// and operates on the resulting values, as follows:
+// if (zx == 1) sets x = 0        // 16-bit constant
+// if (nx == 1) sets x = !x       // bitwise not
+// if (zy == 1) sets y = 0        // 16-bit constant
+// if (ny == 1) sets y = !y       // bitwise not
+// if (f == 1)  sets out = x + y  // integer 2's complement addition
+// if (f == 0)  sets out = x & y  // bitwise and
+// if (no == 1) sets out = !out   // bitwise not
+
+CHIP ALU {
+    IN  
+        x[16], y[16],  // 16-bit inputs        
+        zx, // zero the x input?
+        nx, // negate the x input?
+        zy, // zero the y input?
+        ny, // negate the y input?
+        f,  // compute (out = x + y) or (out = x & y)?
+        no; // negate the out output?
+    OUT 
+        out[16], // 16-bit output
+        zr,      // if (out == 0) equals 1, else 0
+        ng;      // if (out < 0)  equals 1, else 0
+
+    PARTS:
+    //zx, nx operators
+    Not16(in= x, out= notx);
+    Mux4Way16(a= x, b=notx , c= false, d= true, sel[1]=zx, sel[0]=nx , out= xOp);
+
+    //zy, ny operator
+    Not16(in= y, out= noty);
+    Mux4Way16(a= y, b=noty , c= false, d= true, sel[1]=zy, sel[0]=ny , out= yOp);
+
+    //f operator
+    Add16(a = xOp, b = yOp, out = xAddy);
+    And16(a= xOp, b=yOp , out=xAndy );
+    Mux16(a= xAndy, b= xAddy, sel= f, out= fOp);
+
+    //no operator + ng control bit
+    Not16(in=fOp , out= NotfOp);
+    Mux16(a=fOp , b=NotfOp , sel= no, out= out, out[15] = ng, out[0..7]=lsb, out[8..15]=msb);
+
+    //zr control bit
+    Or8Way(in= lsb, out= zr01);
+    Or8Way(in= msb, out= zr02);
+    Or(a= zr01, b=zr02 , out= zr);
+
+}
